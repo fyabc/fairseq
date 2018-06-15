@@ -66,6 +66,13 @@ class TransformerModel(FairseqModel):
                             help='share encoder, decoder and output embeddings'
                                  ' (requires shared dictionary and embed dim)')
 
+        parser.add_argument('--latent-token', default=False, action='store_true',
+                            help='use the latent variable as the starting target token')
+        parser.add_argument('--latent-layer', default=False, action='store_true',
+                            help='add the latent variable into every decoder layer')
+        parser.add_argument('--latent-out', default=False, action='store_true',
+                            help='use the latent variable as output bias before softmax')
+
     @classmethod
     def build_model(cls, args, task):
         """Build a new model instance."""
@@ -92,6 +99,11 @@ class TransformerModel(FairseqModel):
         encoder = TransformerEncoder(args, src_dict, encoder_embed_tokens)
         decoder = TransformerDecoder(args, tgt_dict, decoder_embed_tokens)
         return TransformerModel(encoder, decoder)
+
+    def forward(self, src_tokens, src_lengths, prev_output_tokens, latent=None):
+        encoder_out = self.encoder(src_tokens, src_lengths)
+        decoder_out = self.decoder(prev_output_tokens, encoder_out, latent=latent)
+        return decoder_out
 
 
 class TransformerEncoder(FairseqEncoder):
@@ -173,6 +185,11 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             learned=args.decoder_learned_pos,
         )
 
+        self.latent_token = Embedding(args.latent_category, embed_dim) \
+            if args.latent_token else None
+        self.latent_out = Embedding(args.latent_category, len(dictionary)) \
+            if args.latent_out else None
+
         self.layers = nn.ModuleList([])
         self.layers.extend([
             TransformerDecoderLayer(args)
@@ -183,7 +200,10 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             self.embed_out = nn.Parameter(torch.Tensor(len(dictionary), embed_dim))
             nn.init.normal_(self.embed_out, mean=0, std=embed_dim ** -0.5)
 
-    def forward(self, prev_output_tokens, encoder_out, incremental_state=None):
+    def forward(self, prev_output_tokens, encoder_out, incremental_state=None, latent=None):
+        if isinstance(latent, int):
+            latent = torch.Tensor([latent]).repeat(prev_output_tokens.size(0)).type_as(prev_output_tokens)
+
         # embed positions
         positions = self.embed_positions(
             prev_output_tokens,
@@ -195,7 +215,12 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             positions = positions[:, -1:]
 
         # embed tokens and positions
-        x = self.embed_scale * self.embed_tokens(prev_output_tokens)
+        x = self.embed_tokens(prev_output_tokens)
+        if self.latent_token is not None:
+            # replace the starting dummy token with latent variable
+            if incremental_state is None or incremental_state == {}:
+                x[:, 0, :] = self.latent_token(latent)
+        x *= self.embed_scale
         x += positions
         x = F.dropout(x, p=self.dropout, training=self.training)
 
@@ -209,6 +234,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 encoder_out['encoder_out'],
                 encoder_out['encoder_padding_mask'],
                 incremental_state,
+                latent
             )
 
         # T x B x C -> B x T x C
@@ -219,6 +245,8 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             x = F.linear(x, self.embed_tokens.weight)
         else:
             x = F.linear(x, self.embed_out)
+        if self.latent_out is not None:
+            x += self.latent_out(latent).unsqueeze(1)
 
         return x, attn
 
@@ -314,7 +342,10 @@ class TransformerDecoderLayer(nn.Module):
         self.fc2 = Linear(args.decoder_ffn_embed_dim, self.embed_dim)
         self.layer_norms = nn.ModuleList([LayerNorm(self.embed_dim) for i in range(3)])
 
-    def forward(self, x, encoder_out, encoder_padding_mask, incremental_state):
+        self.latent_bias = Embedding(args.latent_category, self.embed_dim) \
+            if args.latent_layer else None
+
+    def forward(self, x, encoder_out, encoder_padding_mask, incremental_state, latent=None):
         residual = x
         x = self.maybe_layer_norm(0, x, before=True)
         x, _ = self.self_attn(
@@ -345,6 +376,8 @@ class TransformerDecoderLayer(nn.Module):
 
         residual = x
         x = self.maybe_layer_norm(2, x, before=True)
+        if self.latent_bias is not None:
+            x += self.latent_bias(latent).unsqueeze(0)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, p=self.relu_dropout, training=self.training)
         x = self.fc2(x)
@@ -361,7 +394,7 @@ class TransformerDecoderLayer(nn.Module):
             return x
 
 
-def Embedding(num_embeddings, embedding_dim, padding_idx):
+def Embedding(num_embeddings, embedding_dim, padding_idx=None):
     m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
     nn.init.normal_(m.weight, mean=0, std=embedding_dim ** -0.5)
     return m
@@ -406,14 +439,14 @@ def base_architecture(args):
 
 @register_model_architecture('transformer', 'transformer_iwslt_de_en')
 def transformer_iwslt_de_en(args):
-    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 256)
-    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 512)
+    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 512)
+    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 1024)
     args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 4)
-    args.encoder_layers = getattr(args, 'encoder_layers', 3)
-    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 256)
-    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 512)
+    args.encoder_layers = getattr(args, 'encoder_layers', 6)
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 512)
+    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 1024)
     args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
-    args.decoder_layers = getattr(args, 'decoder_layers', 3)
+    args.decoder_layers = getattr(args, 'decoder_layers', 6)
     base_architecture(args)
 
 

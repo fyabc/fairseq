@@ -37,6 +37,8 @@ class TranslationTask(FairseqTask):
                             help='max number of tokens in the source sequence')
         parser.add_argument('--max-target-positions', default=1024, type=int, metavar='N',
                             help='max number of tokens in the target sequence')
+        parser.add_argument('--latent-category', default=1, type=int, metavar='N',
+                            help='number of categories of the latent variable')
 
     def __init__(self, args, src_dict, tgt_dict):
         super().__init__(args)

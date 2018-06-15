@@ -70,6 +70,7 @@ def main(args):
             stop_early=(not args.no_early_stop), normalize_scores=(not args.unnormalized),
             len_penalty=args.lenpen, unk_penalty=args.unkpen,
             sampling=args.sampling, sampling_topk=args.sampling_topk, minlen=args.min_len,
+            latent_category=args.latent_category
         )
 
     if use_cuda:
