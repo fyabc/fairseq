@@ -105,3 +105,6 @@ ENV/
 
 # Generated files
 fairseq/temporal_convolution_tbc
+
+# PyCharm project files
+/.idea/
