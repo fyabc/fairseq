@@ -22,9 +22,9 @@ class ModelClassifier(nn.Module):
         """
 
         Args:
-            x: The source sentence.
+            x: The batch of source sentence.
 
         Returns:
-            IntTensor scalar. Indicate which model to select.
+            1-D LongTensor. Indicate which model to select for each sentence in the batch.
         """
         pass
