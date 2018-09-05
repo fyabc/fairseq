@@ -175,10 +175,13 @@ def sentence_bleu(args):
     if has_target:
         print('| Generate {} with beam={}: {}'.format(args.gen_subset, args.beam, scorer.result_string()))
 
-    bleu_list_filename = os.path.join(ProjectDir, 'data', 'bleu-{}-{}.txt'.format(args.gen_subset, args.path))
+    os.makedirs(os.path.join(ProjectDir, 'data'), exist_ok=True)
+    bleu_list_filename = os.path.join(ProjectDir, 'data', 'bleu-{}-{}.txt'.format(
+        args.gen_subset, '-'.join(os.path.basename(p) for p in args.path.split(':'))))
     with open(bleu_list_filename, 'w', encoding='utf-8') as f:
         for b in bleu_list:
             print('{:.6f}'.format(b) if isinstance(b, float) else b, file=f)
+    print('| Dump sentence BLEU score into {}'.format(bleu_list_filename))
 
 
 def main():
