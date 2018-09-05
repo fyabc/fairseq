@@ -30,7 +30,7 @@ DataDir = '/home/v-yaf/DataTransfer/fairseq/wmt14_en_de_joined_dict'
 
 
 def get_data_path(subset, lang):
-    return os.path.join(DataDir, '{}.en-de.{}.bin'.format(subset, lang))
+    return os.path.join(DataDir, '{}.en-de.{}'.format(subset, lang))
 
 
 def get_dict_path(lang):
@@ -56,6 +56,7 @@ def main():
 
     with open(TargetFiles['x'], 'w', encoding='utf-8') as f_x, open(TargetFiles['y'], 'w', encoding='utf-8') as f_y:
         for subset in Subsets:
+            print('Generating {} data...'.format(subset), end='')
             dataset = read_dataset(subset, lang)
             scores = np.zeros([len(dataset), len(CheckPoints)], dtype=np.float64)
             for i, ckpt in enumerate(CheckPoints):
@@ -76,6 +77,8 @@ def main():
             for sentence, label in zip(dataset, labels):
                 print(sentence, file=f_x)
                 print(label, file=f_y)
+
+            print(' done')
 
     print('Dump inputs to {}, targets to {}.'.format(TargetFiles['x'], TargetFiles['y']))
 
