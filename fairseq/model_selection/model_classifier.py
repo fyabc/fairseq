@@ -11,7 +11,17 @@ Prediction:
 
 import torch.nn as nn
 
+from . import utils
+
 __author__ = 'fyabc'
+
+
+def average_embedding(ckpt_list: list=None):
+    if ckpt_list is None:
+        ckpt_list = [utils.get_model_path(ckpt) for ckpt in utils.CheckPoints]
+
+    for ckpt_filename in ckpt_list:
+        pass
 
 
 class ModelClassifier(nn.Module):

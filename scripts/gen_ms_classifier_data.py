@@ -7,38 +7,13 @@
 Order: [valid, test].
 """
 
-import os
-
 import numpy as np
 
 from fairseq.data import dictionary
 from fairseq.data import IndexedDataset
-from fairseq.my_utils import ProjectDir
+from fairseq.model_selection.utils import CheckPoints, Subsets, TargetFiles, get_data_path, get_dict_path, get_bleu_path
 
 __author__ = 'fyabc'
-
-CheckPoints = [43, 58, 73, 85, 88]
-Subsets = ['valid', 'test']
-
-SourceDir = os.path.join(ProjectDir, 'data')
-TargetFiles = {
-    'x': os.path.join(ProjectDir, 'data', 'classifier-inputs.txt'),
-    'y': os.path.join(ProjectDir, 'data', 'classifier-targets.txt'),
-}
-
-DataDir = '/home/v-yaf/DataTransfer/fairseq/wmt14_en_de_joined_dict'
-
-
-def get_data_path(subset, lang):
-    return os.path.join(DataDir, '{}.en-de.{}'.format(subset, lang))
-
-
-def get_dict_path(lang):
-    return os.path.join(DataDir, 'dict.{}.txt'.format(lang))
-
-
-def get_bleu_path(subset, ckpt):
-    return os.path.join(ProjectDir, 'data', 'bleu-{}-checkpoint{}.pt.txt'.format(subset, ckpt))
 
 
 def read_dataset(subset, lang):
