@@ -143,6 +143,7 @@ class ModelClassifier(nn.Module):
         self.hidden_size = 32
         self.num_layers = 2
         self.bidirectional = True
+        self.dropout_in = 0.0
         self.dropout_out = 0.0
         self.output_units = self.hidden_size
         if self.bidirectional:
@@ -186,7 +187,7 @@ class ModelClassifier(nn.Module):
         x = self.embed_scale * self.embed_tokens(src_tokens)
         if self.embed_positions is not None:
             x += self.embed_positions(src_tokens)
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = F.dropout(x, p=self.dropout_in, training=self.training)
 
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
@@ -211,10 +212,13 @@ class ModelClassifier(nn.Module):
         # T x B x C -> B x T x C
         x = x.transpose(0, 1)
 
-        padding_mask = src_tokens.eq(self.padding_idx)
+        # B x C
+        x = x.sum(dim=1) / src_lengths.unsqueeze(1).type_as(x)
 
-        # Output linear
-        print(padding_mask)
+        # Output linear, B x #classes
+        output = self.linear(x)
+
+        return output
 
 
 def read_classifier_data(args, task: tasks.FairseqTask, test_size=0.1):
@@ -276,10 +280,28 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier.parameters())
 
-    step = 0
+    step = 1
     for epoch in range(1, 100 + 1):
+        classifier.train()
         for sample in data['train']:
             model_output = classifier(**sample['net_input'])
+
+            loss = criterion(model_output, sample['target'])
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            if step % 20 == 0:
+                print('| epoch {:03d} | step {:d} | loss {:.6f}'.format(epoch, step, loss))
+
             step += 1
-            if step == 5:
-                exit()
+
+        classifier.eval()
+        num_total, num_correct = 0, 0
+        for sample in data['test']:
+            model_output = classifier(**sample['net_input'])
+            predict_values = model_output.max(dim=1)[1]
+            num_total += sample['target'].numel()
+            num_correct += predict_values.eq(sample['target']).sum().item()
+        print('| epoch {:03d} | test accuracy {:.6f}'.format(epoch, num_correct / num_total))
