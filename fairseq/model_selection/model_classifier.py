@@ -143,8 +143,8 @@ class ModelClassifier(nn.Module):
         self.hidden_size = 32
         self.num_layers = 2
         self.bidirectional = True
-        self.dropout_in = 0.0
-        self.dropout_out = 0.0
+        self.dropout_in = 0.2
+        self.dropout_out = 0.2
         self.output_units = self.hidden_size
         if self.bidirectional:
             self.output_units *= 2
