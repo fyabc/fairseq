@@ -293,7 +293,9 @@ def main():
             optimizer.step()
 
             if step % 20 == 0:
-                print('| epoch {:03d} | step {:d} | loss {:.6f}'.format(epoch, step, loss))
+                train_accuracy = model_output.max(dim=1)[1].eq(sample['target']).sum().item() / sample['target'].numel()
+                print('| epoch {:03d} | step {:d} | loss {:.6f} | train accuracy {:.6f}'.format(
+                    epoch, step, loss, train_accuracy))
 
             step += 1
 
