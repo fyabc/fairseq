@@ -94,10 +94,10 @@ class ClassifierDataset(Dataset):
 
         indices = data_utils.filter_by_size(
             indices, self.size, max_positions=args.max_source_positions, raise_exception=True)
-        batch_sampler = data_utils.batch_by_size(
+        batch_sampler = tuple(data_utils.batch_by_size(
             indices, self.size, max_tokens=None, max_sentences=batch_size,
             required_batch_size_multiple=1,
-        )
+        ))
         return DataLoader(self, batch_sampler=batch_sampler, collate_fn=self.make_collater(src_dict, left_pad))
 
 
