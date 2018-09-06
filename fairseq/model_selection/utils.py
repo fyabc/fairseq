@@ -22,6 +22,8 @@ TargetFiles = {
 ModelDir = '/home/v-yaf/DataTransfer/fairseq/WMT14_EN_DE_CYCLE_4.5k'
 DataDir = '/home/v-yaf/DataTransfer/fairseq/wmt14_en_de_joined_dict'
 
+Task = None
+
 
 def get_data_path(subset, lang):
     return os.path.join(DataDir, '{}.en-de.{}'.format(subset, lang))
@@ -87,5 +89,5 @@ def average_checkpoints(ckpt_list: list = None):
     return new_state
 
 
-def get_embedding(new_state):
-    print(new_state['model'].keys())
+def get_model_state(new_state):
+    return new_state['model']
